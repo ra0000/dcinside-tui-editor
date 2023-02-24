@@ -77,7 +77,6 @@ const CONST = {
 };
 
 const imageIDList = [];
-const parser = new DOMParser();
 
 const removeOriginalElements = () => {
     document.getElementById('tx_trex_container').remove();
