@@ -76,7 +76,8 @@ const CONST = {
 |_|    \\___/ \\____|_|\\_\\   |____/ \\____|___|_| \\_|____/___|____/|_____|`
 };
 
-const imageList = [];
+const imageIDList = [];
+const parser = new DOMParser();
 
 const removeOriginalElements = () => {
     document.getElementById('tx_trex_container').remove();
@@ -89,9 +90,9 @@ const imageUpload = (image) => {
         originalHTML = unsafeWindow.editor.getHTML();
     }
 
-    imageList.push({data: {file_temp_no: image.file_temp_no}});
+    imageIDList.push(image.file_temp_no);
 
-    unsafeWindow.editor.setHTML(originalHTML + `\n<img src="${image.imageurl}" class="txc-image" /><p></p>`);
+    unsafeWindow.editor.setHTML(originalHTML + `\n<img alt="file_temp_no=${image.file_temp_no}" src="${image.imageurl}"><p></p>`);
 }
 
 const spoofOriginalEditorFunction = () => {
@@ -99,9 +100,13 @@ const spoofOriginalEditorFunction = () => {
         this.exists = () => true
     }
 
-    unsafeWindow.Editor.getAttachBox = () => ({datalist: imageList});
+    unsafeWindow.Editor.getAttachBox = () => ({datalist: imageIDList.flatMap(imageID => ({data: {file_temp_no: imageID}}))});
 
-    unsafeWindow.Editor.getContent = () => unsafeWindow.editor.getHTML(); // editor_write.js에서 Editor.getContent call할때 파라미터 있어서 getContent = getHTML 따위는 안 됨.
+    unsafeWindow.Editor.getContent = () => {
+        removeDeletedImageFromImageIDList();
+
+        return unsafeWindow.editor.getHTML();
+    }
 }
 
 const createLinkButton = () => {
@@ -113,6 +118,7 @@ const createLinkButton = () => {
     el.onclick = (e) => {
         window.open(CONST.UPLOAD_PAGE_URL, '', 'toolbar=no,location=no,directories=no,menubar=no,scrollbars=yes,resizable=yes,width=608px;,height=502px,left=250,top=65');
     };
+
     return el;
 }
 
@@ -132,6 +138,20 @@ const loadStylesheet = () => {
     });
 }
 
+const removeDeletedImageFromImageIDList = () => {
+    const html = unsafeWindow.editor.getHTML();
+
+    if (html.indexOf(' alt="file_temp_no=') == -1) {
+        return;
+    }
+
+    imageIDList.forEach((imageID, idx) => {
+        if (html.indexOf(imageID) == -1) {
+            imageIDList.splice(idx, 1);
+        }
+    });
+}
+
 const loadEditor = () => {
     loadStylesheet();
 
@@ -145,11 +165,11 @@ const loadEditor = () => {
         el: editorElement,
         toolbarItems: [
           ['heading', 'bold', 'italic', 'strike'],
-          [{
-            el: createLinkButton(),
-            tooltip: 'Image'
-          }, 'link'],
+          [{el: createLinkButton(), tooltip: 'Image'}, 'link'],
         ],
+        events: {
+            // blur: onContentChange,
+        }
     });
 
     unsafeWindow.editor = editor;
